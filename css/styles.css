@@ -1,0 +1,615 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #181818;
+  --panel: #111111;
+  --panel-soft: #1a1a1a;
+  --panel-soft-2: #202020;
+  --border: #303030;
+  --text-soft: #b7b7b7;
+  --income: #39d98a;
+  --expense: #ff6b6b;
+  --budget: #ffd24a;
+  --warning: #ff9f43;
+  --danger: #ff5c5c;
+  --accent: #4f7cff;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: white;
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 320px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.section {
+  margin-bottom: 28px;
+}
+
+.section h3 {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 18px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar {
+  position: relative;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #151515;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.calendar-nav h2 {
+  margin: 0;
+  min-width: 220px;
+  text-align: center;
+  font-size: 28px;
+}
+
+button {
+  background: #2b2b2b;
+  color: white;
+  border: 1px solid #3a3a3a;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 10px;
+  margin-top: 5px;
+  transition: 0.2s ease;
+}
+
+button:hover {
+  background: #3a3a3a;
+}
+
+.month-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.summary-card {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.summary-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 24px;
+}
+
+.view-switcher {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #141414;
+}
+
+.view-btn {
+  min-width: 120px;
+  font-weight: 700;
+}
+
+.view-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.view-section {
+  flex: 1;
+  overflow: auto;
+}
+
+.active-view {
+  display: block;
+}
+
+.hidden-view {
+  display: none;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #121212;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.weekday-row div {
+  padding: 14px 8px;
+  text-align: center;
+  font-weight: bold;
+  color: #bdbdbd;
+  border-right: 1px solid #252525;
+}
+
+.weekday-row div:last-child {
+  border-right: none;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 150px;
+  gap: 1px;
+  background: #252525;
+  padding: 1px;
+}
+
+.calendar-cell {
+  background: var(--panel-soft);
+  border: 1px solid #262626;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.calendar-cell:hover {
+  background: #242424;
+}
+
+.calendar-cell.empty {
+  background: #141414;
+  cursor: default;
+}
+
+.calendar-cell.selected-day {
+  outline: 2px solid var(--accent);
+  background: #242424;
+}
+
+.calendar-cell.today {
+  box-shadow: inset 0 0 0 2px var(--income);
+}
+
+.calendar-day-number {
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.day-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.transaction-item {
+  font-size: 12px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.transaction-item.ingreso {
+  color: var(--income);
+  background: rgba(57, 217, 138, 0.12);
+}
+
+.transaction-item.gasto {
+  color: var(--expense);
+  background: rgba(255, 107, 107, 0.12);
+}
+
+.transaction-summary {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--text-soft);
+  padding-top: 8px;
+}
+
+.list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+}
+
+.list-empty {
+  background: #1b1b1b;
+  border: 1px dashed #333;
+  border-radius: 16px;
+  padding: 20px;
+  color: #999;
+  text-align: center;
+}
+
+.list-day-group {
+  background: #121212;
+  border: 1px solid #2d2d2d;
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.list-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.list-day-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.list-day-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.list-day-subtitle {
+  margin: 0;
+  color: #a7a7a7;
+  font-size: 14px;
+}
+
+.list-add-btn {
+  margin-top: 0;
+  background: #2f5cff;
+  border-color: #2f5cff;
+  font-weight: 700;
+}
+
+.list-add-btn:hover {
+  background: #456eff;
+}
+
+.list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list-card {
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid transparent;
+}
+
+.list-card.ingreso {
+  background: rgba(57, 217, 138, 0.14);
+  border-color: rgba(57, 217, 138, 0.3);
+}
+
+.list-card.gasto {
+  background: rgba(255, 107, 107, 0.14);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.list-card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.list-card-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.list-card-subtitle {
+  font-size: 13px;
+  color: #d0d0d0;
+}
+
+.list-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.list-card-amount {
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.list-card.ingreso .list-card-amount {
+  color: var(--income);
+}
+
+.list-card.gasto .list-card-amount {
+  color: #ff7b7b;
+}
+
+.day-total {
+  margin-top: 14px;
+  text-align: right;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.day-total strong {
+  color: #fff;
+}
+
+.item-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.item {
+  background: #222;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  border: 1px solid #2d2d2d;
+}
+
+.item-row .item {
+  flex: 1;
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-title {
+  font-weight: 700;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.budget-badge,
+.remaining-badge,
+.spent-badge,
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.budget-badge {
+  background: rgba(255, 208, 74, 0.16);
+  color: var(--budget);
+  border: 1px solid rgba(255, 208, 74, 0.45);
+}
+
+.remaining-badge {
+  background: rgba(79, 124, 255, 0.15);
+  color: #87a6ff;
+  border: 1px solid rgba(79, 124, 255, 0.35);
+}
+
+.spent-badge {
+  background: rgba(255,255,255,0.08);
+  color: #e7e7e7;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.status-badge.ok {
+  background: rgba(57, 217, 138, 0.12);
+  color: var(--income);
+  border: 1px solid rgba(57, 217, 138, 0.3);
+}
+
+.status-badge.warning {
+  background: rgba(255, 159, 67, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(255, 159, 67, 0.3);
+}
+
+.status-badge.over {
+  background: rgba(255, 92, 92, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(255, 92, 92, 0.3);
+}
+
+.delete-btn {
+  background: #a92b2b;
+  border: 1px solid #c13b3b;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  margin-top: 0;
+}
+
+.delete-btn:hover {
+  background: #c43737;
+}
+
+.small-delete-btn {
+  padding: 8px 10px;
+  font-size: 12px;
+  min-width: 78px;
+  align-self: center;
+}
+
+.popup-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+.popup {
+  background: #242424;
+  padding: 24px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid #353535;
+}
+
+.popup h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.popup input,
+.popup textarea,
+.popup select {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  box-sizing: border-box;
+  background: #161616;
+  color: white;
+}
+
+.popup textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.popup-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.popup-buttons button {
+  flex: 1;
+}
+
+.field-label {
+  display: block;
+  color: var(--text-soft);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.selected-date-box {
+  background: #181818;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  color: #cfcfcf;
+}
+
+.selected-date-box strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff;
+}
+
+.ingreso {
+  color: var(--income);
+}
+
+.gasto {
+  color: var(--expense);
+}
+
+.neutral {
+  color: white;
+}
+
+@media (max-width: 980px) {
+  body {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .month-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-nav h2 {
+    min-width: auto;
+    font-size: 22px;
+  }
+
+  .grid-container {
+    grid-auto-rows: 120px;
+  }
+
+  .list-day-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.app-title {
+  position: absolute;
+  left: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
