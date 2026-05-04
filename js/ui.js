@@ -28,6 +28,13 @@ let currentMonth = currentDate.getMonth();
 let currentYear = currentDate.getFullYear();
 let currentView = "calendar";
 
+const CATEGORY_TYPE_LABELS = {
+  ingreso: "Ingreso",
+  gasto: "Gasto",
+  ahorro: "Ahorro",
+  budget: "Budget"
+};
+
 function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
@@ -49,37 +56,57 @@ function setCalendarToPeriodStart(period) {
   currentYear = date.getFullYear();
 }
 
+function getTransactionVisualType(transaction, period) {
+  const category = period?.categories?.find((cat) => cat.id === transaction.categoryId);
+  return category?.type || transaction.type || "gasto";
+}
+
+function getTransactionLabel(transaction, period) {
+  const visualType = getTransactionVisualType(transaction, period);
+
+  if (visualType === "ingreso") return "Ingreso";
+  if (visualType === "ahorro") return "Ahorro";
+  if (visualType === "budget") return "Budget";
+  return "Gasto";
+}
+
+function getAmountPrefix(transaction) {
+  if (transaction.type === "ingreso") return "+";
+  return "-";
+}
+
 function getPeriodTotals(period) {
   let income = 0;
   let expense = 0;
+  let savings = 0;
 
   if (!period) {
-    return { income, expense, balance: 0 };
+    return { income, expense, savings, balance: 0 };
   }
 
   Object.values(period.transactions || {}).forEach((dayTransactions) => {
     dayTransactions.forEach((transaction) => {
-      if (transaction.type === "ingreso") {
-        income += Number(transaction.amount || 0);
-      } else {
-        expense += Number(transaction.amount || 0);
-      }
+      if (transaction.type === "ingreso") income += Number(transaction.amount || 0);
+      if (transaction.type === "gasto") expense += Number(transaction.amount || 0);
+      if (transaction.type === "ahorro") savings += Number(transaction.amount || 0);
     });
   });
 
   return {
     income,
     expense,
-    balance: income - expense
+    savings,
+    balance: income - expense - savings
   };
 }
 
 function getMonthTotals(period) {
   let income = 0;
   let expense = 0;
+  let savings = 0;
 
   if (!period) {
-    return { income, expense, balance: 0 };
+    return { income, expense, savings, balance: 0 };
   }
 
   Object.entries(period.transactions || {}).forEach(([dateKey, dayTransactions]) => {
@@ -90,33 +117,56 @@ function getMonthTotals(period) {
     }
 
     dayTransactions.forEach((transaction) => {
-      if (transaction.type === "ingreso") {
-        income += Number(transaction.amount || 0);
-      } else {
-        expense += Number(transaction.amount || 0);
-      }
+      if (transaction.type === "ingreso") income += Number(transaction.amount || 0);
+      if (transaction.type === "gasto") expense += Number(transaction.amount || 0);
+      if (transaction.type === "ahorro") savings += Number(transaction.amount || 0);
     });
   });
 
   return {
     income,
     expense,
-    balance: income - expense
+    savings,
+    balance: income - expense - savings
   };
 }
 
-function getCategorySpent(period, categoryId) {
-  let spent = 0;
+function getCategoryTotals(period, categoryId) {
+  let income = 0;
+  let expense = 0;
+  let savings = 0;
 
   Object.values(period.transactions || {}).forEach((dayTransactions) => {
     dayTransactions.forEach((transaction) => {
-      if (transaction.categoryId === categoryId && transaction.type === "gasto") {
-        spent += Number(transaction.amount || 0);
-      }
+      if (transaction.categoryId !== categoryId) return;
+      if (transaction.type === "ingreso") income += Number(transaction.amount || 0);
+      if (transaction.type === "gasto") expense += Number(transaction.amount || 0);
+      if (transaction.type === "ahorro") savings += Number(transaction.amount || 0);
     });
   });
 
-  return spent;
+  return {
+    income,
+    expense,
+    savings,
+    balance: income - expense - savings
+  };
+}
+
+function getBudgetStatusClass(spent, budget) {
+  if (!budget || budget <= 0) return "status-neutral";
+  const ratio = spent / budget;
+  if (ratio >= 1) return "status-danger";
+  if (ratio >= 0.8) return "status-warning";
+  return "status-good";
+}
+
+function getBudgetStatusText(spent, budget) {
+  if (!budget || budget <= 0) return "Sin límite";
+  const ratio = spent / budget;
+  if (ratio >= 1) return "Pasado";
+  if (ratio >= 0.8) return "Cuidado";
+  return "Saludable";
 }
 
 function showElement(id) {
@@ -186,6 +236,7 @@ export function openCategoryPopup() {
     return;
   }
 
+  updateCategoryTypeUI();
   document.getElementById("categoryPopup").style.display = "flex";
 }
 
@@ -218,6 +269,7 @@ export function openTransactionPopup(dateKey) {
 
   selectedDate = dateKey;
   updateCategorySelect();
+  updateTransactionTypeUI();
   updateSelectedDateLabel();
   document.getElementById("transactionPopup").style.display = "flex";
 }
@@ -257,6 +309,7 @@ export function renderAll() {
   renderPeriods();
   renderCategories();
   updateCategorySelect();
+  updateTransactionTypeUI();
   renderCurrentView();
 }
 
@@ -310,6 +363,7 @@ export function renderMonthSummary() {
 
   document.getElementById("monthIncome").textContent = money(totals.income);
   document.getElementById("monthExpense").textContent = money(totals.expense);
+  document.getElementById("monthSavings").textContent = money(totals.savings);
 
   const balance = document.getElementById("monthBalance");
   balance.textContent = money(totals.balance);
@@ -346,17 +400,9 @@ export function renderCalendar() {
     const cell = document.createElement("div");
     cell.className = "calendar-cell";
 
-    if (!insidePeriod) {
-      cell.classList.add("outside-period");
-    }
-
-    if (isToday(currentYear, currentMonth, day)) {
-      cell.classList.add("today");
-    }
-
-    if (selectedDate === dateKey) {
-      cell.classList.add("selected-day");
-    }
+    if (!insidePeriod) cell.classList.add("outside-period");
+    if (isToday(currentYear, currentMonth, day)) cell.classList.add("today");
+    if (selectedDate === dateKey) cell.classList.add("selected-day");
 
     if (insidePeriod) {
       cell.addEventListener("click", () => openTransactionPopup(dateKey));
@@ -372,19 +418,21 @@ export function renderCalendar() {
     let total = 0;
 
     dayTransactions.slice(0, 3).forEach((transaction) => {
+      const visualType = getTransactionVisualType(transaction, period);
       const item = document.createElement("div");
-      item.className = `transaction-item ${transaction.type}`;
+      item.className = `transaction-item ${visualType}`;
       item.textContent = `${transaction.categoryName || transaction.description || "Movimiento"}: ${money(transaction.amount)}`;
       transactionContainer.appendChild(item);
 
-      total += transaction.type === "ingreso" ? Number(transaction.amount) : -Number(transaction.amount);
+      if (transaction.type === "ingreso") total += Number(transaction.amount);
+      if (transaction.type === "gasto" || transaction.type === "ahorro") total -= Number(transaction.amount);
     });
 
     const summary = document.createElement("div");
     summary.className = "transaction-summary";
 
     if (dayTransactions.length > 0) {
-      summary.textContent = `Total: ${money(total)}`;
+      summary.textContent = `Disponible: ${money(total)}`;
     } else if (!insidePeriod) {
       summary.textContent = "Fuera del periodo";
     }
@@ -421,7 +469,7 @@ export function renderListView() {
   }
 
   if (monthDays.length === 0) {
-    container.innerHTML = `<div class="list-empty">No hay pagos ni cobros registrados en este mes para este periodo.</div>`;
+    container.innerHTML = `<div class="list-empty">No hay movimientos registrados en este mes para este periodo.</div>`;
     return;
   }
 
@@ -461,8 +509,9 @@ export function renderListView() {
     let total = 0;
 
     transactions.forEach((transaction) => {
+      const visualType = getTransactionVisualType(transaction, period);
       const card = document.createElement("div");
-      card.className = `list-card ${transaction.type}`;
+      card.className = `list-card ${visualType}`;
 
       const left = document.createElement("div");
       left.className = "list-card-left";
@@ -474,7 +523,7 @@ export function renderListView() {
       const cardSubtitle = document.createElement("div");
       cardSubtitle.className = "list-card-subtitle";
       cardSubtitle.textContent = [
-        transaction.type === "ingreso" ? "Cobro" : "Pago",
+        getTransactionLabel(transaction, period),
         transaction.description
       ].filter(Boolean).join(" • ");
 
@@ -483,7 +532,7 @@ export function renderListView() {
 
       const amount = document.createElement("div");
       amount.className = "list-card-amount";
-      amount.textContent = transaction.type === "ingreso" ? `+${money(transaction.amount)}` : `-${money(transaction.amount)}`;
+      amount.textContent = `${getAmountPrefix(transaction)}${money(transaction.amount)}`;
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "delete-btn";
@@ -505,12 +554,13 @@ export function renderListView() {
       card.appendChild(right);
       items.appendChild(card);
 
-      total += transaction.type === "ingreso" ? Number(transaction.amount) : -Number(transaction.amount);
+      if (transaction.type === "ingreso") total += Number(transaction.amount);
+      if (transaction.type === "gasto" || transaction.type === "ahorro") total -= Number(transaction.amount);
     });
 
     const totalEl = document.createElement("div");
     totalEl.className = "day-total";
-    totalEl.innerHTML = `Balance del día: <strong>${money(total)}</strong>`;
+    totalEl.innerHTML = `Disponible del día: <strong>${money(total)}</strong>`;
 
     group.appendChild(header);
     group.appendChild(items);
@@ -554,7 +604,7 @@ export function renderPeriods() {
   list.innerHTML = "";
 
   if (periods.length === 0) {
-    list.innerHTML = `<div class="item">No hay periodos todavía.</div>`;
+    list.innerHTML = `<div class="item empty-state-card">No hay periodos todavía.</div>`;
     return;
   }
 
@@ -562,15 +612,15 @@ export function renderPeriods() {
     const row = document.createElement("div");
     row.className = "item-row";
 
-    if (period.id === activeId) {
-      row.classList.add("active");
-    }
+    if (period.id === activeId) row.classList.add("active");
 
     const box = document.createElement("div");
     box.className = "item";
 
     const totals = getPeriodTotals(period);
-    const remaining = Number(period.budget || 0) - totals.expense;
+    const remaining = Number(period.budget || 0) - totals.expense - totals.savings;
+    const statusClass = getBudgetStatusClass(totals.expense + totals.savings, Number(period.budget || 0));
+    const statusText = getBudgetStatusText(totals.expense + totals.savings, Number(period.budget || 0));
 
     box.innerHTML = `
       <div class="item-content">
@@ -579,8 +629,10 @@ export function renderPeriods() {
           <span class="status-badge">${period.style}</span>
           <span>${period.startDate || "sin inicio"} → ${period.endDate || "sin final"}</span>
           <span class="budget-badge">Budget: ${money(period.budget)}</span>
-          <span>Gastado: ${money(totals.expense)}</span>
+          <span class="gasto-text">Gastado: ${money(totals.expense)}</span>
+          <span class="ahorro-text">Ahorrado: ${money(totals.savings)}</span>
           <span>Restante: ${money(remaining)}</span>
+          <span class="budget-status ${statusClass}">${statusText}</span>
         </div>
       </div>
     `;
@@ -677,32 +729,52 @@ export function renderCategories() {
   list.innerHTML = "";
 
   if (!period) {
-    list.innerHTML = `<div class="item">Selecciona un periodo primero.</div>`;
+    list.innerHTML = `<div class="item empty-state-card">Selecciona un periodo primero.</div>`;
     return;
   }
 
   if (period.categories.length === 0) {
-    list.innerHTML = `<div class="item">No hay categorías todavía.</div>`;
+    list.innerHTML = `<div class="item empty-state-card">No hay categorías todavía.</div>`;
     return;
   }
 
   period.categories.forEach((category) => {
-    const spent = getCategorySpent(period, category.id);
-    const remaining = Number(category.budget || 0) - spent;
+    const totals = getCategoryTotals(period, category.id);
+    const spentForBudget = category.type === "budget" ? totals.expense : 0;
+    const remaining = Number(category.budget || 0) - spentForBudget;
+    const statusClass = getBudgetStatusClass(spentForBudget, Number(category.budget || 0));
+    const statusText = getBudgetStatusText(spentForBudget, Number(category.budget || 0));
 
     const row = document.createElement("div");
     row.className = "item-row";
 
     const box = document.createElement("div");
-    box.className = "item";
+    box.className = `item category-item ${category.type}`;
+
+    let metaHTML = "";
+
+    if (category.type === "ingreso") {
+      metaHTML = `<span class="ingreso-text">Ingresos: ${money(totals.income)}</span>`;
+    } else if (category.type === "gasto") {
+      metaHTML = `<span class="gasto-text">Gastado: ${money(totals.expense)}</span>`;
+    } else if (category.type === "ahorro") {
+      metaHTML = `<span class="ahorro-text">Ahorrado: ${money(totals.savings)}</span>`;
+    } else {
+      metaHTML = `
+        <span class="budget-badge">Budget: ${money(category.budget)}</span>
+        <span class="gasto-text">Gastado: ${money(spentForBudget)}</span>
+        <span>Restante: ${money(remaining)}</span>
+        <span class="budget-status ${statusClass}">${statusText}</span>
+      `;
+    }
+
     box.innerHTML = `
       <div class="item-content">
-        <div class="item-title">${category.name}</div>
-        <div class="item-meta">
-          <span class="budget-badge">Budget: ${money(category.budget)}</span>
-          <span>Gastado: ${money(spent)}</span>
-          <span>Restante: ${money(remaining)}</span>
+        <div class="item-title-row">
+          <span class="item-title">${category.name}</span>
+          <span class="type-badge ${category.type}">${CATEGORY_TYPE_LABELS[category.type]}</span>
         </div>
+        <div class="item-meta">${metaHTML}</div>
       </div>
     `;
 
@@ -720,10 +792,12 @@ export function renderCategories() {
 
 export function addCategory() {
   const titleInput = document.getElementById("catTitulo");
+  const typeInput = document.getElementById("catType");
   const budgetInput = document.getElementById("catBudget");
 
   const name = titleInput.value.trim();
-  const budget = Number(budgetInput.value || 0);
+  const type = typeInput.value;
+  const budget = type === "budget" ? Number(budgetInput.value || 0) : 0;
   const period = getActivePeriod();
 
   if (!period) {
@@ -741,10 +815,12 @@ export function addCategory() {
     return;
   }
 
-  addCategoryToActivePeriod({ name, budget });
+  addCategoryToActivePeriod({ name, type, budget });
 
   titleInput.value = "";
+  typeInput.value = "ingreso";
   budgetInput.value = "";
+  updateCategoryTypeUI();
   closeCategoryPopup();
   renderAll();
 }
@@ -760,23 +836,78 @@ export function deleteCategory(categoryId, categoryName) {
 export function updateCategorySelect() {
   const period = getActivePeriod();
   const select = document.getElementById("categoriaSelect");
-  select.innerHTML = '<option value="">Seleccionar categoría</option>';
+  select.innerHTML = '<option value="">Sin categoría / tipo manual</option>';
 
   if (!period) return;
 
   period.categories.forEach((category) => {
     const option = document.createElement("option");
     option.value = category.id;
-    option.textContent = `${category.name} (Budget: ${money(category.budget)})`;
+    option.textContent = `${category.name} (${CATEGORY_TYPE_LABELS[category.type]})`;
     select.appendChild(option);
   });
 }
 
+export function updateCategoryTypeUI() {
+  const type = document.getElementById("catType").value;
+  const wrapper = document.getElementById("catBudgetWrapper");
+  const help = document.getElementById("categoryTypeHelp");
+
+  if (type === "budget") {
+    wrapper.classList.remove("hidden-view");
+  } else {
+    wrapper.classList.add("hidden-view");
+  }
+
+  if (type === "ingreso") help.textContent = "Ingreso: registra dinero que entra, como nómina, propinas o regalos.";
+  if (type === "gasto") help.textContent = "Gasto: registra pagos obligatorios o gastos directos, como carro, celular o luz.";
+  if (type === "ahorro") help.textContent = "Ahorro: registra dinero separado para una meta, como viaje, emergencia o equipo.";
+  if (type === "budget") help.textContent = "Budget: define un límite para gastar en esa categoría, como fast food o hobbies.";
+}
+
+export function updateTransactionTypeUI() {
+  const period = getActivePeriod();
+  const select = document.getElementById("categoriaSelect");
+  const manualWrapper = document.getElementById("manualTypeWrapper");
+  const typeBox = document.getElementById("selectedCategoryTypeBox");
+  const typeLabel = document.getElementById("selectedCategoryTypeLabel");
+  const help = document.getElementById("transactionTypeHelp");
+
+  if (!select || !manualWrapper || !typeBox || !typeLabel || !help) return;
+
+  const category = period?.categories?.find((cat) => cat.id === select.value);
+
+  if (!category) {
+    manualWrapper.classList.remove("hidden-view");
+    typeBox.classList.add("manual");
+    typeLabel.textContent = "Manual";
+    help.textContent = "No seleccionaste categoría. Escoge manualmente si es ingreso, gasto o ahorro.";
+    return;
+  }
+
+  manualWrapper.classList.add("hidden-view");
+  typeBox.classList.remove("manual");
+  typeLabel.textContent = CATEGORY_TYPE_LABELS[category.type];
+
+  if (category.type === "ingreso") help.textContent = "Esta categoría es de ingreso. El movimiento se guardará como dinero que entra.";
+  if (category.type === "gasto") help.textContent = "Esta categoría es de gasto. El movimiento se guardará como dinero que sale.";
+  if (category.type === "ahorro") help.textContent = "Esta categoría es de ahorro. El movimiento aumentará lo ahorrado.";
+  if (category.type === "budget") help.textContent = "Esta categoría es de budget. El movimiento contará como gasto contra ese budget.";
+}
+
 export function addTransaction() {
+  const period = getActivePeriod();
   const categoryId = document.getElementById("categoriaSelect").value;
+  const category = period?.categories?.find((cat) => cat.id === categoryId);
   const description = document.getElementById("descripcion").value.trim();
   const amount = Number(document.getElementById("cantidad").value || 0);
-  const type = document.getElementById("tipoMovimiento").value;
+  let type = document.getElementById("tipoMovimiento").value;
+
+  if (category) {
+    if (category.type === "ingreso") type = "ingreso";
+    if (category.type === "gasto" || category.type === "budget") type = "gasto";
+    if (category.type === "ahorro") type = "ahorro";
+  }
 
   if (!selectedDate) {
     alert("Selecciona un día.");
@@ -805,6 +936,7 @@ function clearTransactionForm() {
   document.getElementById("descripcion").value = "";
   document.getElementById("cantidad").value = "";
   document.getElementById("tipoMovimiento").value = "gasto";
+  updateTransactionTypeUI();
 }
 
 export function updatePeriodStyleUI() {
@@ -826,6 +958,8 @@ export function updatePeriodStyleUI() {
 
 export function initUI() {
   const period = getActivePeriod();
+
+  updateCategoryTypeUI();
 
   if (period) {
     setCalendarToPeriodStart(period);

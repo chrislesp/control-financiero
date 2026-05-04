@@ -1,6 +1,9 @@
 const PERIODS_KEY = "cf_periods_v2";
 const ACTIVE_PERIOD_KEY = "cf_active_period_id";
 
+const VALID_CATEGORY_TYPES = ["ingreso", "gasto", "ahorro", "budget"];
+const VALID_TRANSACTION_TYPES = ["ingreso", "gasto", "ahorro"];
+
 function createId(prefix) {
   if (window.crypto && window.crypto.randomUUID) {
     return `${prefix}-${window.crypto.randomUUID()}`;
@@ -22,33 +25,58 @@ function writeJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function normalizeCategoryType(value) {
+  return VALID_CATEGORY_TYPES.includes(value) ? value : "budget";
+}
+
+function normalizeTransactionType(value) {
+  return VALID_TRANSACTION_TYPES.includes(value) ? value : "gasto";
+}
+
+function inferCategoryType(category) {
+  if (category.type) return normalizeCategoryType(category.type);
+  if (Number(category.budget || 0) > 0) return "budget";
+  return "gasto";
+}
+
 function normalizeOldCategory(category) {
   if (typeof category === "string") {
     return {
       id: createId("cat"),
       name: category,
+      type: "gasto",
       budget: 0
     };
   }
 
+  const type = inferCategoryType(category);
+
   return {
     id: category.id || createId("cat"),
     name: category.name || category.titulo || "Categoría",
-    budget: Number(category.budget || 0)
+    type,
+    budget: type === "budget" ? Number(category.budget || 0) : 0
   };
 }
 
 function normalizeOldTransaction(transaction, categories) {
   const categoryName = transaction.categoria || transaction.categoryName || transaction.titulo || "";
-  const category = categories.find((cat) => cat.name === categoryName);
+  const category = categories.find((cat) => cat.name === categoryName || cat.id === transaction.categoryId);
+  const categoryType = category?.type || "";
+
+  let type = transaction.tipo || transaction.type || "gasto";
+
+  if (categoryType === "ingreso") type = "ingreso";
+  if (categoryType === "gasto" || categoryType === "budget") type = "gasto";
+  if (categoryType === "ahorro") type = "ahorro";
 
   return {
     id: transaction.id || createId("tx"),
     categoryId: transaction.categoryId || category?.id || "",
-    categoryName,
+    categoryName: category?.name || categoryName,
     description: transaction.descripcion || transaction.description || "",
     amount: Number(transaction.cantidad || transaction.amount || 0),
-    type: transaction.tipo || transaction.type || "gasto"
+    type: normalizeTransactionType(type)
   };
 }
 
@@ -131,9 +159,9 @@ function migrateOldDataIfNeeded() {
     transactions
   };
 
-  const migrated = [migratedPeriod];
+  const migrated = [normalizePeriod(migratedPeriod)];
   writeJSON(PERIODS_KEY, migrated);
-  localStorage.setItem(ACTIVE_PERIOD_KEY, migratedPeriod.id);
+  localStorage.setItem(ACTIVE_PERIOD_KEY, migrated[0].id);
   return migrated;
 }
 
@@ -240,6 +268,13 @@ export function addTransactionToActivePeriod(dateKey, transactionData) {
   }
 
   const category = period.categories.find((cat) => cat.id === transactionData.categoryId);
+  let type = normalizeTransactionType(transactionData.type || "gasto");
+
+  if (category) {
+    if (category.type === "ingreso") type = "ingreso";
+    if (category.type === "gasto" || category.type === "budget") type = "gasto";
+    if (category.type === "ahorro") type = "ahorro";
+  }
 
   const transaction = {
     id: createId("tx"),
@@ -247,7 +282,7 @@ export function addTransactionToActivePeriod(dateKey, transactionData) {
     categoryName: category?.name || transactionData.categoryName || "",
     description: transactionData.description || "",
     amount: Number(transactionData.amount || 0),
-    type: transactionData.type || "gasto"
+    type
   };
 
   period.transactions[dateKey].push(transaction);

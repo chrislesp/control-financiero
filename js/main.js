@@ -14,6 +14,8 @@ import {
   openHomePage,
   bypassHome,
   updatePeriodStyleUI,
+  updateCategoryTypeUI,
+  updateTransactionTypeUI,
   initUI
 } from "./ui.js";
 
@@ -21,6 +23,7 @@ function setupEventListeners() {
   document.getElementById("openCategoryBtn").addEventListener("click", openCategoryPopup);
   document.getElementById("closeCategoryBtn").addEventListener("click", closeCategoryPopup);
   document.getElementById("addCategoryBtn").addEventListener("click", addCategory);
+  document.getElementById("catType").addEventListener("change", updateCategoryTypeUI);
 
   document.getElementById("openPeriodBtn").addEventListener("click", openPeriodPopup);
   document.getElementById("homeCreatePeriodBtn").addEventListener("click", openPeriodPopup);
@@ -30,6 +33,7 @@ function setupEventListeners() {
   document.getElementById("addPeriodBtn").addEventListener("click", addPeriod);
   document.getElementById("periodStyle").addEventListener("change", updatePeriodStyleUI);
 
+  document.getElementById("categoriaSelect").addEventListener("change", updateTransactionTypeUI);
   document.getElementById("closeTransactionBtn").addEventListener("click", closeTransactionPopup);
   document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
 

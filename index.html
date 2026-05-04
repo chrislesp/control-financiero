@@ -27,7 +27,7 @@
         <p class="eyebrow">Control Financiero</p>
         <h1>Planifica tu dinero por periodos.</h1>
         <p class="home-description">
-          Crea un periodo, añade categorías propias para ese periodo y registra ingresos o gastos en el calendario.
+          Crea un periodo, define categorías inteligentes y registra ingresos, gastos, ahorros o budgets en el calendario.
         </p>
 
         <div class="home-actions">
@@ -73,7 +73,11 @@
             <strong class="summary-value gasto" id="monthExpense">$0.00</strong>
           </div>
           <div class="summary-card">
-            <span class="summary-label">Balance del mes</span>
+            <span class="summary-label">Ahorros del mes</span>
+            <strong class="summary-value ahorro" id="monthSavings">$0.00</strong>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Balance disponible</span>
             <strong class="summary-value" id="monthBalance">$0.00</strong>
           </div>
         </div>
@@ -107,8 +111,27 @@
     <div class="popup">
       <h3>Nueva categoría</h3>
       <p class="popup-help">Esta categoría solo pertenece al periodo activo.</p>
-      <input id="catTitulo" type="text" placeholder="Título de la categoría" />
-      <input id="catBudget" type="number" step="0.01" min="0" placeholder="Budget de la categoría" />
+
+      <label class="field-label" for="catTitulo">Nombre</label>
+      <input id="catTitulo" type="text" placeholder="Ej: Nómina, Carro, Viaje Perú, Fast Food" />
+
+      <label class="field-label" for="catType">Tipo de categoría</label>
+      <select id="catType">
+        <option value="ingreso">Ingreso</option>
+        <option value="gasto">Gasto</option>
+        <option value="ahorro">Ahorro</option>
+        <option value="budget">Budget</option>
+      </select>
+
+      <div id="catBudgetWrapper" class="hidden-view">
+        <label class="field-label" for="catBudget">Budget de la categoría</label>
+        <input id="catBudget" type="number" step="0.01" min="0" placeholder="Ej: 150" />
+      </div>
+
+      <p class="popup-help" id="categoryTypeHelp">
+        Ingreso: registra dinero que entra, como nómina o propinas.
+      </p>
+
       <div class="popup-buttons">
         <button id="closeCategoryBtn" type="button">Cancelar</button>
         <button id="addCategoryBtn" type="button" class="primary-btn">Guardar</button>
@@ -160,15 +183,31 @@
         <strong id="selectedDateLabel">Sin seleccionar</strong>
       </div>
 
+      <label class="field-label" for="categoriaSelect">Categoría</label>
       <select id="categoriaSelect">
-        <option value="">Seleccionar categoría</option>
+        <option value="">Sin categoría / tipo manual</option>
       </select>
+
+      <div class="selected-category-type" id="selectedCategoryTypeBox">
+        <span>Tipo detectado:</span>
+        <strong id="selectedCategoryTypeLabel">Manual</strong>
+      </div>
+
       <textarea id="descripcion" placeholder="Descripción"></textarea>
       <input id="cantidad" type="number" step="0.01" min="0" placeholder="Cantidad" />
-      <select id="tipoMovimiento">
-        <option value="gasto">Gasto</option>
-        <option value="ingreso">Ingreso</option>
-      </select>
+
+      <div id="manualTypeWrapper">
+        <label class="field-label" for="tipoMovimiento">Tipo manual</label>
+        <select id="tipoMovimiento">
+          <option value="gasto">Gasto</option>
+          <option value="ingreso">Ingreso</option>
+          <option value="ahorro">Ahorro</option>
+        </select>
+      </div>
+
+      <p class="popup-help" id="transactionTypeHelp">
+        Si eliges una categoría, el tipo del movimiento se toma automáticamente de esa categoría.
+      </p>
 
       <div class="popup-buttons">
         <button id="closeTransactionBtn" type="button">Cancelar</button>
