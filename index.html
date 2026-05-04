@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control Financiero</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <div class="section">
+      <h3>Periodos</h3>
+      <button id="openPeriodBtn" type="button">+ Añadir periodo</button>
+      <div id="periodList" class="spaced-list"></div>
+    </div>
+
+    <div class="section">
+      <h3>Categorías del periodo</h3>
+      <button id="openCategoryBtn" type="button">+ Añadir categoría</button>
+      <div id="categoryList" class="spaced-list"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="home-page" id="homePage">
+      <div class="home-card">
+        <p class="eyebrow">Control Financiero</p>
+        <h1>Planifica tu dinero por periodos.</h1>
+        <p class="home-description">
+          Crea un periodo, añade categorías propias para ese periodo y registra ingresos o gastos en el calendario.
+        </p>
+
+        <div class="home-actions">
+          <button id="homeCreatePeriodBtn" type="button" class="primary-btn">Crear periodo</button>
+          <button id="homeSkipBtn" type="button">Ir al calendario</button>
+        </div>
+
+        <div class="home-periods">
+          <h3>Periodos disponibles</h3>
+          <div id="homePeriodList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace hidden-view" id="workspace">
+      <div class="topbar">
+        <div class="topbar-brand-row">
+          <div class="app-brand">Control Financiero</div>
+
+          <div class="calendar-header">
+            <div class="calendar-nav">
+              <button id="prevMonthBtn" type="button">←</button>
+              <h2 id="calendarTitle">Calendario</h2>
+              <button id="nextMonthBtn" type="button">→</button>
+            </div>
+          </div>
+
+          <button id="goHomeBtn" type="button" class="ghost-btn">Inicio</button>
+        </div>
+
+        <div class="active-period-bar" id="activePeriodBar">
+          <span id="activePeriodName">Sin periodo activo</span>
+          <strong id="activePeriodStyle">Libre</strong>
+        </div>
+
+        <div class="month-summary" id="monthSummary">
+          <div class="summary-card">
+            <span class="summary-label">Ingresos del mes</span>
+            <strong class="summary-value ingreso" id="monthIncome">$0.00</strong>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Gastos del mes</span>
+            <strong class="summary-value gasto" id="monthExpense">$0.00</strong>
+          </div>
+          <div class="summary-card">
+            <span class="summary-label">Balance del mes</span>
+            <strong class="summary-value" id="monthBalance">$0.00</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="view-switcher">
+        <button id="calendarViewBtn" class="view-btn active" type="button">Calendario</button>
+        <button id="listViewBtn" class="view-btn" type="button">Lista</button>
+      </div>
+
+      <section id="calendarView" class="view-section active-view">
+        <div class="weekday-row">
+          <div>Dom</div>
+          <div>Lun</div>
+          <div>Mar</div>
+          <div>Mié</div>
+          <div>Jue</div>
+          <div>Vie</div>
+          <div>Sáb</div>
+        </div>
+        <div class="grid-container" id="calendarGrid"></div>
+      </section>
+
+      <section id="listView" class="view-section hidden-view">
+        <div class="list-container" id="listContainer"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="popup-bg" id="categoryPopup">
+    <div class="popup">
+      <h3>Nueva categoría</h3>
+      <p class="popup-help">Esta categoría solo pertenece al periodo activo.</p>
+      <input id="catTitulo" type="text" placeholder="Título de la categoría" />
+      <input id="catBudget" type="number" step="0.01" min="0" placeholder="Budget de la categoría" />
+      <div class="popup-buttons">
+        <button id="closeCategoryBtn" type="button">Cancelar</button>
+        <button id="addCategoryBtn" type="button" class="primary-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-bg" id="periodPopup">
+    <div class="popup">
+      <h3>Nuevo periodo</h3>
+
+      <label class="field-label" for="periodName">Nombre del periodo</label>
+      <input id="periodName" type="text" placeholder="Ej: Abril 2026" />
+
+      <label class="field-label" for="periodStart">Fecha inicial</label>
+      <input id="periodStart" type="date" />
+
+      <label class="field-label" for="periodEnd">Fecha final</label>
+      <input id="periodEnd" type="date" />
+
+      <label class="field-label" for="periodStyle">Estilo</label>
+      <select id="periodStyle">
+        <option value="libre">Libre</option>
+        <option value="budget">Budget</option>
+        <option value="planificador">Planificador</option>
+      </select>
+
+      <div id="periodBudgetWrapper">
+        <label class="field-label" for="periodBudget">Budget del periodo</label>
+        <input id="periodBudget" type="number" step="0.01" min="0" placeholder="Ej: 1000" />
+      </div>
+
+      <p class="popup-help" id="periodStyleHelp">
+        Libre: puedes crear categorías y movimientos manualmente.
+      </p>
+
+      <div class="popup-buttons">
+        <button id="closePeriodBtn" type="button">Cancelar</button>
+        <button id="addPeriodBtn" type="button" class="primary-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-bg" id="transactionPopup">
+    <div class="popup">
+      <h3>Nuevo movimiento</h3>
+      <div class="selected-date-box">
+        <span>Fecha seleccionada:</span>
+        <strong id="selectedDateLabel">Sin seleccionar</strong>
+      </div>
+
+      <select id="categoriaSelect">
+        <option value="">Seleccionar categoría</option>
+      </select>
+      <textarea id="descripcion" placeholder="Descripción"></textarea>
+      <input id="cantidad" type="number" step="0.01" min="0" placeholder="Cantidad" />
+      <select id="tipoMovimiento">
+        <option value="gasto">Gasto</option>
+        <option value="ingreso">Ingreso</option>
+      </select>
+
+      <div class="popup-buttons">
+        <button id="closeTransactionBtn" type="button">Cancelar</button>
+        <button id="addTransactionBtn" type="button" class="primary-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
