@@ -932,3 +932,133 @@ button:hover {
 .list-card.ahorro .list-card-subtitle {
   color: #dcc9ff;
 }
+
+/* PHASE 4: BASIC PLANNER */
+.secondary-btn {
+  background: #242424;
+  border-color: var(--border);
+  color: var(--text);
+  width: 100%;
+  margin: 4px 0 12px;
+}
+
+.planner-setup-box {
+  background: rgba(79, 124, 255, 0.08);
+  border: 1px solid rgba(79, 124, 255, 0.22);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.planner-setup-box h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.planner-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.planner-rule-card {
+  background: #171717;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.planner-rule-card strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.planner-rule-card span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.planner-preview {
+  background: #171717;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.planner-preview strong {
+  color: var(--text);
+}
+
+.planner-preview .preview-good {
+  color: var(--income);
+  font-weight: 800;
+}
+
+.planner-preview .preview-bad {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.planner-generated-badge {
+  color: var(--accent);
+  border: 1px solid rgba(79, 124, 255, 0.35);
+  background: rgba(79, 124, 255, 0.12);
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+/* Scroll para ventanas popup largas como Nuevo Periodo */
+.popup {
+  max-height: 90vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4f7cff #1a1a1a;
+}
+
+/* Scrollbar para Chrome / Edge */
+.popup::-webkit-scrollbar {
+  width: 8px;
+}
+
+.popup::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 10px;
+}
+
+.popup::-webkit-scrollbar-thumb {
+  background: #4f7cff;
+  border-radius: 10px;
+}
+
+.popup::-webkit-scrollbar-thumb:hover {
+  background: #6f91ff;
+}
+
+/* Evita que el popup se pegue arriba/abajo de la pantalla */
+.popup-bg {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+/* En pantallas pequeñas, aprovecha más espacio */
+@media (max-width: 700px) {
+  .popup {
+    max-height: 85vh;
+  }
+
+  .popup-bg {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+}

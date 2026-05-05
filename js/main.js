@@ -17,6 +17,9 @@ import {
   updateCategoryTypeUI,
   updateTransactionTypeUI,
   updateSavingPreview,
+  updatePlannerRuleFrequencyUI,
+  addPlannerRule,
+  updatePlannerPreview,
   initUI
 } from "./ui.js";
 
@@ -33,6 +36,11 @@ function setupEventListeners() {
   document.getElementById("closePeriodBtn").addEventListener("click", closePeriodPopup);
   document.getElementById("addPeriodBtn").addEventListener("click", addPeriod);
   document.getElementById("periodStyle").addEventListener("change", updatePeriodStyleUI);
+  document.getElementById("periodStart").addEventListener("change", updatePlannerPreview);
+  document.getElementById("periodEnd").addEventListener("change", updatePlannerPreview);
+  document.getElementById("plannerRuleFrequency").addEventListener("change", updatePlannerRuleFrequencyUI);
+  document.getElementById("addPlannerRuleBtn").addEventListener("click", addPlannerRule);
+  document.getElementById("plannerFlexibleCategories").addEventListener("input", updatePlannerPreview);
 
   document.getElementById("categoriaSelect").addEventListener("change", updateTransactionTypeUI);
   document.getElementById("saveToCategorySelect").addEventListener("change", updateSavingPreview);

@@ -113,7 +113,7 @@
       <p class="popup-help">Esta categoría solo pertenece al periodo activo.</p>
 
       <label class="field-label" for="catTitulo">Nombre</label>
-      <input id="catTitulo" type="text" placeholder="Ej: Nómina, Carro, Viaje , Fast Food" />
+      <input id="catTitulo" type="text" placeholder="Ej: Nómina, Carro, Viaje Perú, Fast Food" />
 
       <label class="field-label" for="catType">Tipo de categoría</label>
       <select id="catType">
@@ -179,6 +179,58 @@
       <div id="periodBudgetWrapper">
         <label class="field-label" for="periodBudget">Budget del periodo</label>
         <input id="periodBudget" type="number" step="0.01" min="0" placeholder="Ej: 1000" />
+      </div>
+
+
+
+      <div id="plannerSetupWrapper" class="hidden-view planner-setup-box">
+        <h4>Planificador de movimientos repetitivos</h4>
+        <p class="popup-help compact-help">Añade ingresos y gastos que se repiten. La app generará los movimientos dentro del periodo.</p>
+
+        <label class="field-label" for="plannerRuleName">Nombre</label>
+        <input id="plannerRuleName" type="text" placeholder="Ej: Nómina, Carro, Celular" />
+
+        <label class="field-label" for="plannerRuleType">Tipo</label>
+        <select id="plannerRuleType">
+          <option value="ingreso">Ingreso repetitivo</option>
+          <option value="gasto">Gasto repetitivo</option>
+        </select>
+
+        <label class="field-label" for="plannerRuleAmount">Cantidad</label>
+        <input id="plannerRuleAmount" type="number" step="0.01" min="0" placeholder="Ej: 200" />
+
+        <label class="field-label" for="plannerRuleFrequency">Frecuencia</label>
+        <select id="plannerRuleFrequency">
+          <option value="monthly">Mensual: día fijo del mes</option>
+          <option value="weekly">Semanal: día fijo de la semana</option>
+        </select>
+
+        <div id="plannerMonthlyWrapper">
+          <label class="field-label" for="plannerRuleMonthDay">Día del mes</label>
+          <input id="plannerRuleMonthDay" type="number" min="1" max="31" placeholder="Ej: 18" />
+        </div>
+
+        <div id="plannerWeeklyWrapper" class="hidden-view">
+          <label class="field-label" for="plannerRuleWeekday">Día de la semana</label>
+          <select id="plannerRuleWeekday">
+            <option value="0">Domingo</option>
+            <option value="1">Lunes</option>
+            <option value="2">Martes</option>
+            <option value="3">Miércoles</option>
+            <option value="4">Jueves</option>
+            <option value="5">Viernes</option>
+            <option value="6">Sábado</option>
+          </select>
+        </div>
+
+        <button id="addPlannerRuleBtn" type="button" class="secondary-btn">+ Añadir regla repetitiva</button>
+        <div id="plannerRuleList" class="planner-rule-list"></div>
+
+        <label class="field-label" for="plannerFlexibleCategories">Categorías flexibles para sugerencias</label>
+        <input id="plannerFlexibleCategories" type="text" placeholder="Ej: Fast Food, Hobbies, Viaje Perú" />
+        <p class="popup-help compact-help">Se dividirá el dinero sobrante entre estas categorías como sugerencia de budget.</p>
+
+        <div id="plannerPreview" class="planner-preview">Añade reglas para ver una proyección.</div>
       </div>
 
       <p class="popup-help" id="periodStyleHelp">

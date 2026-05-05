@@ -3,6 +3,7 @@ const ACTIVE_PERIOD_KEY = "cf_active_period_id";
 
 const VALID_CATEGORY_TYPES = ["ingreso", "gasto", "ahorro", "budget"];
 const VALID_TRANSACTION_TYPES = ["ingreso", "gasto", "ahorro"];
+const VALID_PLANNER_FREQUENCIES = ["weekly", "monthly"];
 
 function createId(prefix) {
   if (window.crypto && window.crypto.randomUUID) {
@@ -65,6 +66,26 @@ function normalizeOldCategory(category) {
   };
 }
 
+function normalizePlannerRule(rule) {
+  return {
+    id: rule.id || createId("rule"),
+    name: rule.name || "Regla recurrente",
+    categoryType: ["ingreso", "gasto"].includes(rule.categoryType) ? rule.categoryType : "gasto",
+    amount: Number(rule.amount || 0),
+    frequency: VALID_PLANNER_FREQUENCIES.includes(rule.frequency) ? rule.frequency : "monthly",
+    weekday: Number.isFinite(Number(rule.weekday)) ? Number(rule.weekday) : 1,
+    monthDay: Math.min(Math.max(Number(rule.monthDay || 1), 1), 31)
+  };
+}
+
+function normalizePlannerSuggestion(suggestion) {
+  return {
+    id: suggestion.id || createId("suggestion"),
+    name: suggestion.name || "Categoría sugerida",
+    amount: Number(suggestion.amount || 0)
+  };
+}
+
 function normalizeOldTransaction(transaction, categories) {
   const categoryName = transaction.categoria || transaction.categoryName || transaction.titulo || "";
   const category = categories.find((cat) => cat.name === categoryName || cat.id === transaction.categoryId);
@@ -86,7 +107,9 @@ function normalizeOldTransaction(transaction, categories) {
     sourceIncomeCategoryId: transaction.sourceIncomeCategoryId || "",
     sourceIncomeCategoryName: transaction.sourceIncomeCategoryName || "",
     linkedTransactionId: transaction.linkedTransactionId || "",
-    isAutoSaving: Boolean(transaction.isAutoSaving)
+    isAutoSaving: Boolean(transaction.isAutoSaving),
+    isPlannerGenerated: Boolean(transaction.isPlannerGenerated),
+    plannerRuleId: transaction.plannerRuleId || ""
   };
 }
 
@@ -112,7 +135,9 @@ function normalizePeriod(period) {
     style: period.style || "libre",
     budget: Number(period.budget || 0),
     categories,
-    transactions
+    transactions,
+    plannerRules: Array.isArray(period.plannerRules) ? period.plannerRules.map(normalizePlannerRule) : [],
+    plannerSuggestions: Array.isArray(period.plannerSuggestions) ? period.plannerSuggestions.map(normalizePlannerSuggestion) : []
   };
 }
 
@@ -166,7 +191,9 @@ function migrateOldDataIfNeeded() {
     style: "budget",
     budget,
     categories,
-    transactions
+    transactions,
+    plannerRules: [],
+    plannerSuggestions: []
   };
 
   const migrated = [normalizePeriod(migratedPeriod)];
@@ -207,7 +234,9 @@ export function addPeriod(periodData) {
     id: createId("period"),
     ...periodData,
     categories: [],
-    transactions: {}
+    transactions: {},
+    plannerRules: periodData.plannerRules || [],
+    plannerSuggestions: periodData.plannerSuggestions || []
   });
 
   periods.push(period);
@@ -296,7 +325,9 @@ export function addTransactionToActivePeriod(dateKey, transactionData) {
     sourceIncomeCategoryId: transactionData.sourceIncomeCategoryId || "",
     sourceIncomeCategoryName: transactionData.sourceIncomeCategoryName || "",
     linkedTransactionId: transactionData.linkedTransactionId || "",
-    isAutoSaving: Boolean(transactionData.isAutoSaving)
+    isAutoSaving: Boolean(transactionData.isAutoSaving),
+    isPlannerGenerated: Boolean(transactionData.isPlannerGenerated),
+    plannerRuleId: transactionData.plannerRuleId || ""
   };
 
   period.transactions[dateKey].push(transaction);

@@ -5,6 +5,8 @@ import {
   setActivePeriodId,
   addPeriod as storePeriod,
   deletePeriod as storeDeletePeriod,
+  updatePeriod as storeUpdatePeriod,
+  generateId,
   addCategoryToActivePeriod,
   deleteCategoryFromActivePeriod,
   addTransactionToActivePeriod,
@@ -27,6 +29,7 @@ let currentDate = new Date();
 let currentMonth = currentDate.getMonth();
 let currentYear = currentDate.getFullYear();
 let currentView = "calendar";
+let plannerDraftRules = [];
 
 const CATEGORY_TYPE_LABELS = {
   ingreso: "Ingreso",
@@ -224,6 +227,193 @@ function hideElement(id) {
   document.getElementById(id).classList.add("hidden-view");
 }
 
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function dateToKey(date) {
+  return formatDateKey(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getOccurrenceDatesForRule(rule, startDate, endDate) {
+  const dates = [];
+  const start = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+
+  if (rule.frequency === "weekly") {
+    let cursor = new Date(start);
+    const targetWeekday = Number(rule.weekday || 0);
+
+    while (cursor.getDay() !== targetWeekday) {
+      cursor = addDays(cursor, 1);
+    }
+
+    while (cursor <= end) {
+      dates.push(dateToKey(cursor));
+      cursor = addDays(cursor, 7);
+    }
+
+    return dates;
+  }
+
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const targetDay = Math.min(Math.max(Number(rule.monthDay || 1), 1), 31);
+
+  while (cursor <= end) {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const maxDay = getDaysInMonth(year, month);
+    const day = Math.min(targetDay, maxDay);
+    const occurrence = new Date(year, month, day);
+    const key = dateToKey(occurrence);
+
+    if (occurrence >= start && occurrence <= end) {
+      dates.push(key);
+    }
+
+    cursor = new Date(year, month + 1, 1);
+  }
+
+  return dates;
+}
+
+function calculatePlannerProjection(startDate, endDate, rules) {
+  let expectedIncome = 0;
+  let fixedExpenses = 0;
+  const ruleSummaries = [];
+
+  rules.forEach((rule) => {
+    const dates = getOccurrenceDatesForRule(rule, startDate, endDate);
+    const total = dates.length * Number(rule.amount || 0);
+
+    if (rule.categoryType === "ingreso") expectedIncome += total;
+    if (rule.categoryType === "gasto") fixedExpenses += total;
+
+    ruleSummaries.push({ ...rule, occurrences: dates.length, total });
+  });
+
+  return {
+    expectedIncome,
+    fixedExpenses,
+    available: expectedIncome - fixedExpenses,
+    ruleSummaries
+  };
+}
+
+function parseFlexibleCategories(rawValue) {
+  return rawValue
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildPlannerPeriod(period) {
+  const rules = period.plannerRules || [];
+  const flexibleNames = (period.plannerSuggestions || []).map((item) => item.name);
+  const projection = calculatePlannerProjection(period.startDate, period.endDate, rules);
+  const flexibleBudget = flexibleNames.length > 0 && projection.available > 0
+    ? projection.available / flexibleNames.length
+    : 0;
+
+  const categories = [];
+  const categoryMap = new Map();
+
+  function ensureCategory(name, type, budget = 0) {
+    const key = `${name.toLowerCase()}-${type}`;
+    if (categoryMap.has(key)) return categoryMap.get(key);
+
+    const category = {
+      id: generateId("cat"),
+      name,
+      type,
+      budget: type === "budget" ? Number(budget || 0) : 0,
+      savingSourceCategoryId: "",
+      savingMode: "percent",
+      savingValue: 0
+    };
+
+    categoryMap.set(key, category);
+    categories.push(category);
+    return category;
+  }
+
+  rules.forEach((rule) => {
+    ensureCategory(rule.name, rule.categoryType === "ingreso" ? "ingreso" : "gasto");
+  });
+
+  flexibleNames.forEach((name) => {
+    ensureCategory(name, "budget", flexibleBudget);
+  });
+
+  const transactions = {};
+
+  rules.forEach((rule) => {
+    const category = ensureCategory(rule.name, rule.categoryType === "ingreso" ? "ingreso" : "gasto");
+    const dates = getOccurrenceDatesForRule(rule, period.startDate, period.endDate);
+
+    dates.forEach((dateKey) => {
+      if (!transactions[dateKey]) transactions[dateKey] = [];
+
+      transactions[dateKey].push({
+        id: generateId("tx"),
+        categoryId: category.id,
+        categoryName: category.name,
+        description: `Generado por planificador`,
+        amount: Number(rule.amount || 0),
+        type: rule.categoryType === "ingreso" ? "ingreso" : "gasto",
+        sourceIncomeCategoryId: "",
+        sourceIncomeCategoryName: "",
+        linkedTransactionId: "",
+        isAutoSaving: false,
+        isPlannerGenerated: true,
+        plannerRuleId: rule.id
+      });
+    });
+  });
+
+  return {
+    ...period,
+    categories,
+    transactions,
+    plannerSuggestions: flexibleNames.map((name) => ({
+      id: generateId("suggestion"),
+      name,
+      amount: flexibleBudget
+    }))
+  };
+}
+
+function resetPlannerDraft() {
+  plannerDraftRules = [];
+  const fields = [
+    "plannerRuleName",
+    "plannerRuleAmount",
+    "plannerRuleMonthDay",
+    "plannerFlexibleCategories"
+  ];
+
+  fields.forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.value = "";
+  });
+
+  const type = document.getElementById("plannerRuleType");
+  const frequency = document.getElementById("plannerRuleFrequency");
+  const weekday = document.getElementById("plannerRuleWeekday");
+
+  if (type) type.value = "ingreso";
+  if (frequency) frequency.value = "monthly";
+  if (weekday) weekday.value = "1";
+
+  updatePlannerRuleFrequencyUI();
+  renderPlannerDraftRules();
+  updatePlannerPreview();
+}
+
+
 export function openHomePage() {
   showElement("homePage");
   hideElement("workspace");
@@ -292,6 +482,7 @@ export function closeCategoryPopup() {
 }
 
 export function openPeriodPopup() {
+  resetPlannerDraft();
   updatePeriodStyleUI();
   document.getElementById("periodPopup").style.display = "flex";
 }
@@ -571,6 +762,7 @@ export function renderListView() {
       cardSubtitle.className = "list-card-subtitle";
       cardSubtitle.textContent = [
         getTransactionLabel(transaction, period),
+        transaction.isPlannerGenerated ? "Generado por planificador" : "",
         transaction.isAutoSaving ? `Auto-ahorro desde ${transaction.sourceIncomeCategoryName || "ingreso"}` : "",
         transaction.description
       ].filter(Boolean).join(" • ");
@@ -714,12 +906,151 @@ export function selectPeriod(periodId) {
   openWorkspace();
 }
 
+
+export function updatePlannerRuleFrequencyUI() {
+  const frequency = document.getElementById("plannerRuleFrequency")?.value || "monthly";
+  const monthly = document.getElementById("plannerMonthlyWrapper");
+  const weekly = document.getElementById("plannerWeeklyWrapper");
+
+  if (!monthly || !weekly) return;
+
+  if (frequency === "weekly") {
+    monthly.classList.add("hidden-view");
+    weekly.classList.remove("hidden-view");
+  } else {
+    weekly.classList.add("hidden-view");
+    monthly.classList.remove("hidden-view");
+  }
+}
+
+export function addPlannerRule() {
+  const nameInput = document.getElementById("plannerRuleName");
+  const typeInput = document.getElementById("plannerRuleType");
+  const amountInput = document.getElementById("plannerRuleAmount");
+  const frequencyInput = document.getElementById("plannerRuleFrequency");
+  const weekdayInput = document.getElementById("plannerRuleWeekday");
+  const monthDayInput = document.getElementById("plannerRuleMonthDay");
+
+  const name = nameInput.value.trim();
+  const amount = Number(amountInput.value || 0);
+  const frequency = frequencyInput.value;
+
+  if (!name) {
+    alert("Añade un nombre para la regla repetitiva.");
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    alert("Añade una cantidad válida para la regla.");
+    return;
+  }
+
+  plannerDraftRules.push({
+    id: generateId("rule"),
+    name,
+    categoryType: typeInput.value,
+    amount,
+    frequency,
+    weekday: Number(weekdayInput.value || 1),
+    monthDay: Number(monthDayInput.value || 1)
+  });
+
+  nameInput.value = "";
+  amountInput.value = "";
+  monthDayInput.value = "";
+  renderPlannerDraftRules();
+  updatePlannerPreview();
+}
+
+export function renderPlannerDraftRules() {
+  const container = document.getElementById("plannerRuleList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (plannerDraftRules.length === 0) {
+    container.innerHTML = `<div class="planner-preview">No hay reglas repetitivas todavía.</div>`;
+    return;
+  }
+
+  plannerDraftRules.forEach((rule) => {
+    const card = document.createElement("div");
+    card.className = "planner-rule-card";
+
+    const text = document.createElement("div");
+    const frequencyText = rule.frequency === "weekly"
+      ? `cada ${getWeekdayName(new Date(2026, 0, 4 + Number(rule.weekday || 0))).toLowerCase()}`
+      : `día ${rule.monthDay} de cada mes`;
+
+    text.innerHTML = `
+      <strong>${rule.name}</strong>
+      <span>${CATEGORY_TYPE_LABELS[rule.categoryType]} • ${money(rule.amount)} • ${frequencyText}</span>
+    `;
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "delete-btn small-delete-btn";
+    deleteBtn.textContent = "Quitar";
+    deleteBtn.addEventListener("click", () => {
+      plannerDraftRules = plannerDraftRules.filter((item) => item.id !== rule.id);
+      renderPlannerDraftRules();
+      updatePlannerPreview();
+    });
+
+    card.appendChild(text);
+    card.appendChild(deleteBtn);
+    container.appendChild(card);
+  });
+}
+
+export function updatePlannerPreview() {
+  const preview = document.getElementById("plannerPreview");
+  const startInput = document.getElementById("periodStart");
+  const endInput = document.getElementById("periodEnd");
+  const flexibleInput = document.getElementById("plannerFlexibleCategories");
+
+  if (!preview || !startInput || !endInput || !flexibleInput) return;
+
+  const startDate = startInput.value;
+  const endDate = endInput.value;
+
+  if (!startDate || !endDate) {
+    preview.textContent = "Selecciona fecha inicial y final para ver la proyección.";
+    return;
+  }
+
+  if (endDate < startDate) {
+    preview.innerHTML = `<span class="preview-bad">La fecha final no puede ser antes de la inicial.</span>`;
+    return;
+  }
+
+  const projection = calculatePlannerProjection(startDate, endDate, plannerDraftRules);
+  const flexibleNames = parseFlexibleCategories(flexibleInput.value || "");
+  const suggestedPerCategory = flexibleNames.length > 0 && projection.available > 0
+    ? projection.available / flexibleNames.length
+    : 0;
+
+  const statusClass = projection.available >= 0 ? "preview-good" : "preview-bad";
+  const ruleLines = projection.ruleSummaries
+    .map((rule) => `<li>${rule.name}: ${rule.occurrences} vez/veces = <strong>${money(rule.total)}</strong></li>`)
+    .join("");
+
+  preview.innerHTML = `
+    <div>Ingresos esperados: <strong class="ingreso-text">${money(projection.expectedIncome)}</strong></div>
+    <div>Gastos obligatorios: <strong class="gasto-text">${money(projection.fixedExpenses)}</strong></div>
+    <div>Disponible sugerido: <strong class="${statusClass}">${money(projection.available)}</strong></div>
+    ${flexibleNames.length ? `<div>Sugerencia por categoría flexible: <strong class="budget-text">${money(suggestedPerCategory)}</strong></div>` : ""}
+    ${ruleLines ? `<ul>${ruleLines}</ul>` : `<div>No hay reglas añadidas todavía.</div>`}
+  `;
+}
+
 export function addPeriod() {
   const nameInput = document.getElementById("periodName");
   const startInput = document.getElementById("periodStart");
   const endInput = document.getElementById("periodEnd");
   const styleInput = document.getElementById("periodStyle");
   const budgetInput = document.getElementById("periodBudget");
+  const flexibleInput = document.getElementById("plannerFlexibleCategories");
 
   const startDate = getDateKeyFromInput(startInput.value);
   const endDate = getDateKeyFromInput(endInput.value);
@@ -736,19 +1067,34 @@ export function addPeriod() {
     return;
   }
 
-  const period = storePeriod({
+  if (style === "planificador" && plannerDraftRules.length === 0) {
+    const confirmed = confirm("No añadiste reglas repetitivas. ¿Quieres crear el periodo planificador vacío?");
+    if (!confirmed) return;
+  }
+
+  const flexibleNames = style === "planificador" ? parseFlexibleCategories(flexibleInput.value || "") : [];
+
+  let period = storePeriod({
     name: nameInput.value.trim() || defaultName,
     startDate,
     endDate,
     style,
-    budget: style === "libre" ? 0 : Number(budgetInput.value || 0)
+    budget: style === "libre" ? 0 : Number(budgetInput.value || 0),
+    plannerRules: style === "planificador" ? plannerDraftRules : [],
+    plannerSuggestions: flexibleNames.map((name) => ({ name, amount: 0 }))
   });
+
+  if (style === "planificador") {
+    period = buildPlannerPeriod(period);
+    storeUpdatePeriod(period);
+  }
 
   nameInput.value = "";
   startInput.value = "";
   endInput.value = "";
   budgetInput.value = "";
   styleInput.value = "libre";
+  resetPlannerDraft();
 
   closePeriodPopup();
   setCalendarToPeriodStart(period);
@@ -1164,17 +1510,22 @@ function clearTransactionForm() {
 export function updatePeriodStyleUI() {
   const style = document.getElementById("periodStyle").value;
   const wrapper = document.getElementById("periodBudgetWrapper");
+  const plannerWrapper = document.getElementById("plannerSetupWrapper");
   const help = document.getElementById("periodStyleHelp");
 
   if (style === "libre") {
     wrapper.classList.add("hidden-view");
+    plannerWrapper.classList.add("hidden-view");
     help.textContent = "Libre: puedes crear categorías y movimientos manualmente.";
   } else if (style === "budget") {
     wrapper.classList.remove("hidden-view");
+    plannerWrapper.classList.add("hidden-view");
     help.textContent = "Budget: el periodo tiene un límite general y categorías con budget.";
   } else {
     wrapper.classList.remove("hidden-view");
-    help.textContent = "Planificador: por ahora guarda el periodo como base. La automatización se trabajará después.";
+    plannerWrapper.classList.remove("hidden-view");
+    help.textContent = "Planificador: genera movimientos repetitivos y sugiere budgets flexibles con el dinero disponible.";
+    updatePlannerPreview();
   }
 }
 
