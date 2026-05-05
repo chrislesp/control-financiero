@@ -904,3 +904,31 @@ button:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* PHASE 3: SAVINGS CONNECTED TO INCOME */
+.smart-box {
+  background: rgba(180, 124, 255, 0.08);
+  border: 1px solid rgba(180, 124, 255, 0.22);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.smart-box select,
+.smart-box input {
+  margin-bottom: 10px;
+}
+
+.compact-help {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+#savingPreviewText {
+  color: var(--saving);
+  font-weight: 700;
+}
+
+.list-card.ahorro .list-card-subtitle {
+  color: #dcc9ff;
+}

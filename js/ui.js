@@ -153,6 +153,53 @@ function getCategoryTotals(period, categoryId) {
   };
 }
 
+
+function getCategoryById(period, categoryId) {
+  return period?.categories?.find((category) => category.id === categoryId) || null;
+}
+
+function getSavingsBreakdownForCategory(period, savingsCategoryId) {
+  const breakdown = {};
+
+  Object.values(period.transactions || {}).forEach((dayTransactions) => {
+    dayTransactions.forEach((transaction) => {
+      if (transaction.categoryId !== savingsCategoryId || transaction.type !== "ahorro") return;
+
+      const key = transaction.sourceIncomeCategoryId || "manual";
+      const label = transaction.sourceIncomeCategoryName || "Manual";
+
+      if (!breakdown[key]) {
+        breakdown[key] = { label, amount: 0 };
+      }
+
+      breakdown[key].amount += Number(transaction.amount || 0);
+    });
+  });
+
+  return Object.values(breakdown);
+}
+
+function getSavingCategoriesForIncome(period, incomeCategoryId) {
+  return (period?.categories || []).filter((category) => {
+    if (category.type !== "ahorro") return false;
+    return !category.savingSourceCategoryId || category.savingSourceCategoryId === incomeCategoryId;
+  });
+}
+
+function calculateSavingAmount(incomeAmount, mode, rawValue) {
+  const amount = Number(incomeAmount || 0);
+  const hasValue = rawValue !== "" && rawValue !== null && rawValue !== undefined;
+  const value = Number(rawValue || 0);
+
+  if (!hasValue) return amount;
+
+  if (mode === "fixed") {
+    return Math.min(value, amount);
+  }
+
+  return Math.min(amount * (value / 100), amount);
+}
+
 function getBudgetStatusClass(spent, budget) {
   if (!budget || budget <= 0) return "status-neutral";
   const ratio = spent / budget;
@@ -524,6 +571,7 @@ export function renderListView() {
       cardSubtitle.className = "list-card-subtitle";
       cardSubtitle.textContent = [
         getTransactionLabel(transaction, period),
+        transaction.isAutoSaving ? `Auto-ahorro desde ${transaction.sourceIncomeCategoryName || "ingreso"}` : "",
         transaction.description
       ].filter(Boolean).join(" • ");
 
@@ -758,7 +806,22 @@ export function renderCategories() {
     } else if (category.type === "gasto") {
       metaHTML = `<span class="gasto-text">Gastado: ${money(totals.expense)}</span>`;
     } else if (category.type === "ahorro") {
-      metaHTML = `<span class="ahorro-text">Ahorrado: ${money(totals.savings)}</span>`;
+      const sourceCategory = getCategoryById(period, category.savingSourceCategoryId);
+      const sourceText = sourceCategory ? `<span>De: ${sourceCategory.name}</span>` : `<span>De: Manual / cualquier ingreso</span>`;
+      const ruleValue = Number(category.savingValue || 0);
+      const ruleText = ruleValue > 0
+        ? `<span class="ahorro-text">Regla: ${category.savingMode === "fixed" ? money(ruleValue) : `${ruleValue}%`}</span>`
+        : `<span class="ahorro-text">Regla: 100% si se deja vacío</span>`;
+      const breakdown = getSavingsBreakdownForCategory(period, category.id)
+        .map((item) => `<span>De ${item.label}: ${money(item.amount)}</span>`)
+        .join("");
+
+      metaHTML = `
+        <span class="ahorro-text">Ahorrado: ${money(totals.savings)}</span>
+        ${sourceText}
+        ${ruleText}
+        ${breakdown}
+      `;
     } else {
       metaHTML = `
         <span class="budget-badge">Budget: ${money(category.budget)}</span>
@@ -794,10 +857,16 @@ export function addCategory() {
   const titleInput = document.getElementById("catTitulo");
   const typeInput = document.getElementById("catType");
   const budgetInput = document.getElementById("catBudget");
+  const savingSourceInput = document.getElementById("catSavingSource");
+  const savingModeInput = document.getElementById("catSavingMode");
+  const savingValueInput = document.getElementById("catSavingValue");
 
   const name = titleInput.value.trim();
   const type = typeInput.value;
   const budget = type === "budget" ? Number(budgetInput.value || 0) : 0;
+  const savingSourceCategoryId = type === "ahorro" ? savingSourceInput.value : "";
+  const savingMode = type === "ahorro" ? savingModeInput.value : "percent";
+  const savingValue = type === "ahorro" ? Number(savingValueInput.value || 0) : 0;
   const period = getActivePeriod();
 
   if (!period) {
@@ -815,11 +884,21 @@ export function addCategory() {
     return;
   }
 
-  addCategoryToActivePeriod({ name, type, budget });
+  addCategoryToActivePeriod({
+    name,
+    type,
+    budget,
+    savingSourceCategoryId,
+    savingMode,
+    savingValue
+  });
 
   titleInput.value = "";
   typeInput.value = "ingreso";
   budgetInput.value = "";
+  savingSourceInput.value = "";
+  savingModeInput.value = "percent";
+  savingValueInput.value = "";
   updateCategoryTypeUI();
   closeCategoryPopup();
   renderAll();
@@ -850,38 +929,72 @@ export function updateCategorySelect() {
 
 export function updateCategoryTypeUI() {
   const type = document.getElementById("catType").value;
-  const wrapper = document.getElementById("catBudgetWrapper");
+  const budgetWrapper = document.getElementById("catBudgetWrapper");
+  const savingWrapper = document.getElementById("catSavingWrapper");
   const help = document.getElementById("categoryTypeHelp");
 
   if (type === "budget") {
-    wrapper.classList.remove("hidden-view");
+    budgetWrapper.classList.remove("hidden-view");
   } else {
-    wrapper.classList.add("hidden-view");
+    budgetWrapper.classList.add("hidden-view");
+  }
+
+  if (type === "ahorro") {
+    savingWrapper.classList.remove("hidden-view");
+    updateCategorySavingSourceSelect();
+  } else {
+    savingWrapper.classList.add("hidden-view");
   }
 
   if (type === "ingreso") help.textContent = "Ingreso: registra dinero que entra, como nómina, propinas o regalos.";
   if (type === "gasto") help.textContent = "Gasto: registra pagos obligatorios o gastos directos, como carro, celular o luz.";
-  if (type === "ahorro") help.textContent = "Ahorro: registra dinero separado para una meta, como viaje, emergencia o equipo.";
+  if (type === "ahorro") help.textContent = "Ahorro: separa dinero para una meta y puede conectarse a una categoría de ingreso.";
   if (type === "budget") help.textContent = "Budget: define un límite para gastar en esa categoría, como fast food o hobbies.";
+}
+
+function updateCategorySavingSourceSelect() {
+  const period = getActivePeriod();
+  const select = document.getElementById("catSavingSource");
+
+  if (!select) return;
+
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">Manual / cualquier ingreso</option>';
+
+  (period?.categories || [])
+    .filter((category) => category.type === "ingreso")
+    .forEach((category) => {
+      const option = document.createElement("option");
+      option.value = category.id;
+      option.textContent = category.name;
+      select.appendChild(option);
+    });
+
+  if ([...select.options].some((option) => option.value === currentValue)) {
+    select.value = currentValue;
+  }
 }
 
 export function updateTransactionTypeUI() {
   const period = getActivePeriod();
   const select = document.getElementById("categoriaSelect");
   const manualWrapper = document.getElementById("manualTypeWrapper");
+  const savingsWrapper = document.getElementById("incomeSavingsWrapper");
   const typeBox = document.getElementById("selectedCategoryTypeBox");
   const typeLabel = document.getElementById("selectedCategoryTypeLabel");
   const help = document.getElementById("transactionTypeHelp");
 
-  if (!select || !manualWrapper || !typeBox || !typeLabel || !help) return;
+  if (!select || !manualWrapper || !savingsWrapper || !typeBox || !typeLabel || !help) return;
 
   const category = period?.categories?.find((cat) => cat.id === select.value);
 
   if (!category) {
     manualWrapper.classList.remove("hidden-view");
+    savingsWrapper.classList.add("hidden-view");
     typeBox.classList.add("manual");
     typeLabel.textContent = "Manual";
     help.textContent = "No seleccionaste categoría. Escoge manualmente si es ingreso, gasto o ahorro.";
+    updateSavingPreview();
     return;
   }
 
@@ -889,10 +1002,92 @@ export function updateTransactionTypeUI() {
   typeBox.classList.remove("manual");
   typeLabel.textContent = CATEGORY_TYPE_LABELS[category.type];
 
-  if (category.type === "ingreso") help.textContent = "Esta categoría es de ingreso. El movimiento se guardará como dinero que entra.";
+  if (category.type === "ingreso") {
+    savingsWrapper.classList.remove("hidden-view");
+    updateSavingsCategorySelect(category.id);
+    help.textContent = "Esta categoría es de ingreso. Puedes enviar parte o todo este ingreso a una categoría de ahorro.";
+  }
+
+  if (category.type !== "ingreso") {
+    savingsWrapper.classList.add("hidden-view");
+  }
+
   if (category.type === "gasto") help.textContent = "Esta categoría es de gasto. El movimiento se guardará como dinero que sale.";
   if (category.type === "ahorro") help.textContent = "Esta categoría es de ahorro. El movimiento aumentará lo ahorrado.";
   if (category.type === "budget") help.textContent = "Esta categoría es de budget. El movimiento contará como gasto contra ese budget.";
+
+  updateSavingPreview();
+}
+
+function updateSavingsCategorySelect(incomeCategoryId) {
+  const period = getActivePeriod();
+  const select = document.getElementById("saveToCategorySelect");
+  const mode = document.getElementById("savingAmountMode");
+  const value = document.getElementById("savingAmountValue");
+
+  if (!select || !mode || !value) return;
+
+  const currentValue = select.value;
+  const savingsCategories = getSavingCategoriesForIncome(period, incomeCategoryId);
+
+  select.innerHTML = '<option value="">No enviar a ahorro</option>';
+
+  savingsCategories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category.id;
+    option.textContent = category.name;
+    select.appendChild(option);
+  });
+
+  const preferred = savingsCategories.find((category) => category.savingSourceCategoryId === incomeCategoryId) || savingsCategories[0];
+  const shouldKeepCurrent = [...select.options].some((option) => option.value === currentValue);
+
+  select.value = shouldKeepCurrent ? currentValue : (preferred?.id || "");
+
+  const selectedSaving = period?.categories?.find((category) => category.id === select.value);
+  if (selectedSaving) {
+    mode.value = selectedSaving.savingMode || "percent";
+    value.value = selectedSaving.savingValue ? selectedSaving.savingValue : "";
+  } else {
+    mode.value = "percent";
+    value.value = "";
+  }
+}
+
+export function updateSavingPreview() {
+  const period = getActivePeriod();
+  const categorySelect = document.getElementById("categoriaSelect");
+  const saveSelect = document.getElementById("saveToCategorySelect");
+  const modeInput = document.getElementById("savingAmountMode");
+  const valueInput = document.getElementById("savingAmountValue");
+  const amountInput = document.getElementById("cantidad");
+  const preview = document.getElementById("savingPreviewText");
+
+  if (!period || !categorySelect || !saveSelect || !modeInput || !valueInput || !amountInput || !preview) return;
+
+  const incomeCategory = getCategoryById(period, categorySelect.value);
+  const savingCategory = getCategoryById(period, saveSelect.value);
+
+  if (!incomeCategory || incomeCategory.type !== "ingreso") {
+    preview.textContent = "Selecciona una categoría de ingreso para activar ahorros.";
+    return;
+  }
+
+  if (!savingCategory) {
+    preview.textContent = "No se enviará dinero a una categoría de ahorro.";
+    return;
+  }
+
+  const amount = Number(amountInput.value || 0);
+  const savingAmount = calculateSavingAmount(amount, modeInput.value, valueInput.value);
+  const remaining = Math.max(amount - savingAmount, 0);
+
+  if (!amount) {
+    preview.textContent = `Se enviará a ${savingCategory.name}. Si dejas cuánto vacío, se ahorra el 100%.`;
+    return;
+  }
+
+  preview.textContent = `A ${savingCategory.name}: ${money(savingAmount)} • Disponible del ingreso: ${money(remaining)}`;
 }
 
 export function addTransaction() {
@@ -919,12 +1114,36 @@ export function addTransaction() {
     return;
   }
 
-  addTransactionToActivePeriod(selectedDate, {
+  const incomeTransaction = addTransactionToActivePeriod(selectedDate, {
     categoryId,
     description,
     amount,
     type
   });
+
+  if (category?.type === "ingreso") {
+    const savingCategoryId = document.getElementById("saveToCategorySelect").value;
+    const savingCategory = period.categories.find((cat) => cat.id === savingCategoryId && cat.type === "ahorro");
+
+    if (savingCategory) {
+      const savingMode = document.getElementById("savingAmountMode").value;
+      const savingValue = document.getElementById("savingAmountValue").value;
+      const savingAmount = calculateSavingAmount(amount, savingMode, savingValue);
+
+      if (savingAmount > 0) {
+        addTransactionToActivePeriod(selectedDate, {
+          categoryId: savingCategory.id,
+          description: description ? `Ahorro desde ${category.name}: ${description}` : `Ahorro desde ${category.name}`,
+          amount: savingAmount,
+          type: "ahorro",
+          sourceIncomeCategoryId: category.id,
+          sourceIncomeCategoryName: category.name,
+          linkedTransactionId: incomeTransaction?.id || "",
+          isAutoSaving: true
+        });
+      }
+    }
+  }
 
   clearTransactionForm();
   closeTransactionPopup();
@@ -936,6 +1155,9 @@ function clearTransactionForm() {
   document.getElementById("descripcion").value = "";
   document.getElementById("cantidad").value = "";
   document.getElementById("tipoMovimiento").value = "gasto";
+  document.getElementById("saveToCategorySelect").value = "";
+  document.getElementById("savingAmountMode").value = "percent";
+  document.getElementById("savingAmountValue").value = "";
   updateTransactionTypeUI();
 }
 

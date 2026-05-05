@@ -16,6 +16,7 @@ import {
   updatePeriodStyleUI,
   updateCategoryTypeUI,
   updateTransactionTypeUI,
+  updateSavingPreview,
   initUI
 } from "./ui.js";
 
@@ -34,6 +35,10 @@ function setupEventListeners() {
   document.getElementById("periodStyle").addEventListener("change", updatePeriodStyleUI);
 
   document.getElementById("categoriaSelect").addEventListener("change", updateTransactionTypeUI);
+  document.getElementById("saveToCategorySelect").addEventListener("change", updateSavingPreview);
+  document.getElementById("savingAmountMode").addEventListener("change", updateSavingPreview);
+  document.getElementById("savingAmountValue").addEventListener("input", updateSavingPreview);
+  document.getElementById("cantidad").addEventListener("input", updateSavingPreview);
   document.getElementById("closeTransactionBtn").addEventListener("click", closeTransactionPopup);
   document.getElementById("addTransactionBtn").addEventListener("click", addTransaction);
 

@@ -45,7 +45,10 @@ function normalizeOldCategory(category) {
       id: createId("cat"),
       name: category,
       type: "gasto",
-      budget: 0
+      budget: 0,
+      savingSourceCategoryId: "",
+      savingMode: "percent",
+      savingValue: 0
     };
   }
 
@@ -55,7 +58,10 @@ function normalizeOldCategory(category) {
     id: category.id || createId("cat"),
     name: category.name || category.titulo || "Categoría",
     type,
-    budget: type === "budget" ? Number(category.budget || 0) : 0
+    budget: type === "budget" ? Number(category.budget || 0) : 0,
+    savingSourceCategoryId: category.savingSourceCategoryId || "",
+    savingMode: category.savingMode === "fixed" ? "fixed" : "percent",
+    savingValue: Number(category.savingValue || 0)
   };
 }
 
@@ -76,7 +82,11 @@ function normalizeOldTransaction(transaction, categories) {
     categoryName: category?.name || categoryName,
     description: transaction.descripcion || transaction.description || "",
     amount: Number(transaction.cantidad || transaction.amount || 0),
-    type: normalizeTransactionType(type)
+    type: normalizeTransactionType(type),
+    sourceIncomeCategoryId: transaction.sourceIncomeCategoryId || "",
+    sourceIncomeCategoryName: transaction.sourceIncomeCategoryName || "",
+    linkedTransactionId: transaction.linkedTransactionId || "",
+    isAutoSaving: Boolean(transaction.isAutoSaving)
   };
 }
 
@@ -282,7 +292,11 @@ export function addTransactionToActivePeriod(dateKey, transactionData) {
     categoryName: category?.name || transactionData.categoryName || "",
     description: transactionData.description || "",
     amount: Number(transactionData.amount || 0),
-    type
+    type,
+    sourceIncomeCategoryId: transactionData.sourceIncomeCategoryId || "",
+    sourceIncomeCategoryName: transactionData.sourceIncomeCategoryName || "",
+    linkedTransactionId: transactionData.linkedTransactionId || "",
+    isAutoSaving: Boolean(transactionData.isAutoSaving)
   };
 
   period.transactions[dateKey].push(transaction);
@@ -295,7 +309,7 @@ export function deleteTransactionFromActivePeriod(dateKey, transactionId) {
   if (!period || !period.transactions[dateKey]) return;
 
   period.transactions[dateKey] = period.transactions[dateKey].filter(
-    (transaction) => transaction.id !== transactionId
+    (transaction) => transaction.id !== transactionId && transaction.linkedTransactionId !== transactionId
   );
 
   if (period.transactions[dateKey].length === 0) {

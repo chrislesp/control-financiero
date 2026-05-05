@@ -113,7 +113,7 @@
       <p class="popup-help">Esta categoría solo pertenece al periodo activo.</p>
 
       <label class="field-label" for="catTitulo">Nombre</label>
-      <input id="catTitulo" type="text" placeholder="Ej: Nómina, Carro, Viaje Perú, Fast Food" />
+      <input id="catTitulo" type="text" placeholder="Ej: Nómina, Carro, Viaje , Fast Food" />
 
       <label class="field-label" for="catType">Tipo de categoría</label>
       <select id="catType">
@@ -126,6 +126,23 @@
       <div id="catBudgetWrapper" class="hidden-view">
         <label class="field-label" for="catBudget">Budget de la categoría</label>
         <input id="catBudget" type="number" step="0.01" min="0" placeholder="Ej: 150" />
+      </div>
+
+      <div id="catSavingWrapper" class="hidden-view smart-box">
+        <label class="field-label" for="catSavingSource">De dónde saldrá este ahorro</label>
+        <select id="catSavingSource">
+          <option value="">Seleccionar categoría de ingreso</option>
+        </select>
+
+        <label class="field-label" for="catSavingMode">Regla sugerida</label>
+        <select id="catSavingMode">
+          <option value="percent">Porcentaje</option>
+          <option value="fixed">Cantidad fija</option>
+        </select>
+
+        <label class="field-label" for="catSavingValue">Cuánto ahorrar</label>
+        <input id="catSavingValue" type="number" step="0.01" min="0" placeholder="Ej: 10 para 10% o 25.00 fijo" />
+        <p class="popup-help compact-help">Esto solo crea una regla sugerida. Al registrar un ingreso puedes cambiarla.</p>
       </div>
 
       <p class="popup-help" id="categoryTypeHelp">
@@ -203,6 +220,23 @@
           <option value="ingreso">Ingreso</option>
           <option value="ahorro">Ahorro</option>
         </select>
+      </div>
+
+      <div id="incomeSavingsWrapper" class="hidden-view smart-box">
+        <label class="field-label" for="saveToCategorySelect">Ahorrar hacia</label>
+        <select id="saveToCategorySelect">
+          <option value="">No enviar a ahorro</option>
+        </select>
+
+        <label class="field-label" for="savingAmountMode">Tipo de ahorro</label>
+        <select id="savingAmountMode">
+          <option value="percent">Porcentaje</option>
+          <option value="fixed">Cantidad fija</option>
+        </select>
+
+        <label class="field-label" for="savingAmountValue">Cuánto</label>
+        <input id="savingAmountValue" type="number" step="0.01" min="0" placeholder="Vacío = 100% del ingreso" />
+        <p class="popup-help compact-help" id="savingPreviewText">Selecciona una categoría de ahorro para separar parte de este ingreso.</p>
       </div>
 
       <p class="popup-help" id="transactionTypeHelp">
